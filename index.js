@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const path = require('path');
 const http = require('http');
 const helmet = require('helmet');
 const cors = require('cors');
@@ -13,13 +14,15 @@ require('./Models/db');
 const authRoutes = require('./Routes/auth');
 const userRoutes = require('./Routes/users');
 const appointmentRoutes = require('./Routes/appointments');
+const prescriptionRoutes = require('./Routes/prescriptions');
+const documentRoutes = require('./Routes/documents');
 const videoRoutes = require('./Routes/video');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 8090;
 
 // Basic security and parsing
 app.use(helmet());
@@ -34,6 +37,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/video', videoRoutes);
+app.use('/api/prescriptions', prescriptionRoutes);
+app.use('/api/documents', documentRoutes);
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.get('/ping', (req, res) => res.send('pong'));
 app.get('/', (req, res) => res.send('API is running'));

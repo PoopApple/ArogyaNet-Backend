@@ -10,6 +10,7 @@ const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, index: true },
   passwordHash: { type: String, required: true },
   role: { type: String, enum: ['patient', 'doctor', 'admin'], default: 'patient' },
+  doctorApproved: { type: Boolean, default: false },
   phone: { type: String },
   profile: { type: ProfileSchema, default: {} },
   verified: { type: Boolean, default: false },
