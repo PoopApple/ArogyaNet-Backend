@@ -18,6 +18,7 @@ const userRoutes = require('./Routes/users');
 const appointmentRoutes = require('./Routes/appointments');
 const prescriptionRoutes = require('./Routes/prescriptions');
 const documentRoutes = require('./Routes/documents');
+const assessmentsRoutes = require('./Routes/assessments');
 const videoRoutes = require('./Routes/video');
 
 const app = express();
@@ -67,6 +68,7 @@ app.use('/api/appointments', appointmentRoutes);
 app.use('/api/video', videoRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api/assessments', assessmentsRoutes);
 // Note: /uploads static route removed - files now served from S3 via presigned URLs
 
 app.get('/ping', (req, res) => res.send('pong'));

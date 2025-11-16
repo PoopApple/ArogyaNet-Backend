@@ -3,16 +3,25 @@ const Appointment = require('../Models/Appointment');
 const { generateS3Key, getPresignedUploadUrl, getPresignedDownloadUrl, deleteFromS3, BUCKET_NAME } = require('../Utils/s3');
 const logger = require('../Utils/logger');
 
-const formatDocument = (doc) => ({
-  id: doc._id,
-  originalName: doc.originalName,
-  mimeType: doc.mimeType,
-  size: doc.size,
-  s3Key: doc.s3Key,
-  patientId: doc.patientId,
-  doctorId: doc.doctorId,
-  createdAt: doc.createdAt,
-});
+const formatDocument = (doc) => {
+  // Handle populated patientId (object) vs plain ObjectId
+  const patient = doc.patientId;
+  const patientData = patient && typeof patient === 'object' && patient._id 
+    ? { id: patient._id.toString(), name: patient.name || 'Unknown', email: patient.email }
+    : { id: patient?.toString() || doc.patientId?.toString(), name: null, email: null };
+
+  return {
+    id: doc._id,
+    originalName: doc.originalName,
+    mimeType: doc.mimeType,
+    size: doc.size,
+    s3Key: doc.s3Key,
+    patientId: patientData.id,
+    patientName: patientData.name,
+    patientEmail: patientData.email,
+    createdAt: doc.createdAt,
+  };
+};
 
 /**
  * Generate presigned upload URL for client to upload directly to S3
@@ -20,7 +29,7 @@ const formatDocument = (doc) => ({
  */
 const getUploadUrl = async (req, res) => {
   try {
-    const { originalName, mimeType, size, doctorId } = req.body;
+    const { originalName, mimeType, size } = req.body;
 
     // Only patients can upload files
     if (req.user?.role !== 'patient') {
@@ -37,11 +46,11 @@ const getUploadUrl = async (req, res) => {
       return res.status(400).json({ message: 'Missing required fields: originalName, mimeType, size' });
     }
 
-    // Validate file size (5MB limit)
-    if (size > 5 * 1024 * 1024) {
+    // Validate file size (10MB limit)
+    if (size > 10 * 1024 * 1024) {
       // eslint-disable-next-line no-console
       console.warn('[Upload] file-too-large', { userId: req.user?.id, size });
-      return res.status(400).json({ message: 'File size exceeds 5MB limit' });
+      return res.status(400).json({ message: 'File size exceeds 10MB limit' });
     }
 
     // Validate MIME type
@@ -75,7 +84,6 @@ const getUploadUrl = async (req, res) => {
       originalName,
       mimeType,
       size,
-      doctorId: doctorId || null,
       s3Key,
     }));
     // Additional console logging for quick debugging
@@ -85,7 +93,6 @@ const getUploadUrl = async (req, res) => {
       originalName,
       mimeType,
       size,
-      doctorId: doctorId || null,
       s3Key,
       path: req.originalUrl || req.url,
       method: req.method,
@@ -135,7 +142,7 @@ const getUploadUrl = async (req, res) => {
  */
 const confirmUpload = async (req, res) => {
   try {
-    const { s3Key, originalName, mimeType, size, doctorId } = req.body;
+    const { s3Key, originalName, mimeType, size } = req.body;
 
     // Only patients can confirm uploads
     if (req.user?.role !== 'patient') {
@@ -152,11 +159,11 @@ const confirmUpload = async (req, res) => {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
-    // Validate file size at confirmation as well (defense in depth)
-    if (size > 5 * 1024 * 1024) {
+    // Validate file size at confirmation as well (defense in depth) — 10MB limit
+    if (size > 10 * 1024 * 1024) {
       // eslint-disable-next-line no-console
       console.warn('[Upload] file-too-large-confirm', { userId: req.user?.id, size });
-      return res.status(400).json({ message: 'File size exceeds 5MB limit' });
+      return res.status(400).json({ message: 'File size exceeds 10MB limit' });
     }
 
     // Enforce max documents per patient (10) at confirmation to avoid race condition
@@ -175,7 +182,6 @@ const confirmUpload = async (req, res) => {
       originalName,
       mimeType,
       size,
-      doctorId: doctorId || null,
     }));
     // eslint-disable-next-line no-console
     console.log('[Upload] confirm-upload', {
@@ -184,13 +190,11 @@ const confirmUpload = async (req, res) => {
       originalName,
       mimeType,
       size,
-      doctorId: doctorId || null,
     });
 
     // Create document record
     const document = await Document.create({
       patientId: req.user.id,
-      doctorId: doctorId || null,
       originalName,
       mimeType,
       size,
